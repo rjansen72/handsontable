@@ -300,6 +300,15 @@ class PluginHook {
       afterSetCellMeta: [],
 
       /**
+       * Called after cell meta was removed
+       *
+       * @param {Number} row
+       * @param {Number} col
+       * @param {String} key
+       */
+      afterClearCellMeta: [],
+      
+      /**
        * Callback fired after getting info about column header.
        *
        * @event Hooks#afterGetColHeader

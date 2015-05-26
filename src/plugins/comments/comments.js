@@ -16,7 +16,8 @@ import {WalkontableCellCoords} from './../../3rdparty/walkontable/src/cell/coord
  */
 function Comments(instance) {
 
-  var eventManager = eventManagerObject(instance),
+  var _mouseListeners = {},
+    eventManager = eventManagerObject(instance),
     doSaveComment = function(row, col, comment, instance) {
       instance.setCellMeta(row, col, 'comment', comment);
       instance.render();
@@ -33,8 +34,12 @@ function Comments(instance) {
     bindMouseEvent = function(range) {
 
       function commentsListener(event) {
-        eventManager.removeEventListener(document, 'mouseover');
-        if (!(event.target.className == 'htCommentTextArea' || event.target.innerHTML.indexOf('Comment') != -1)) {
+        if (_mouseListeners.mouseover) {
+          eventManager.removeEventListener(document, 'mouseover');
+          _mouseListeners.mouseover = false;
+        }
+          
+        if (!(event.target.className == 'htCommentTextArea' || event.target.className == 'comment-menu-item' || event.target.innerHTML.indexOf('Comment') != -1) ) {
           var value = document.querySelector('.htCommentTextArea').value;
           if (value.trim().length > 1) {
             saveComment(range, value, instance);
@@ -44,11 +49,20 @@ function Comments(instance) {
         }
       }
 
-      eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsListener));
+      if (!_mouseListeners.mousedown) {
+        _mouseListeners.mousedown = true;
+        eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsListener));
+      }
     },
     unBindMouseEvent = function() {
-      eventManager.removeEventListener(document, 'mousedown');
-      eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsMouseOverListener));
+      if (_mouseListeners.mousedown) {
+        _mouseListeners.mousedown = false;
+        eventManager.removeEventListener(document, 'mousedown');
+      }
+      if (!_mouseListeners.mouseover) {
+        _mouseListeners.mouseover = true;
+        eventManager.addEventListener(document, 'mouseover', helper.proxy(commentsMouseOverListener));
+      }
     },
     placeCommentBox = function(range, commentBox) {
       var TD = instance.view.wt.wtTable.getCell(range.from),
@@ -58,7 +72,7 @@ function Comments(instance) {
       commentBox.style.position = 'absolute';
       commentBox.style.left = offset.left + lastColWidth + 'px';
       commentBox.style.top = offset.top + 'px';
-      commentBox.style.zIndex = 2;
+      commentBox.style.zIndex = 2000;
       bindMouseEvent(range, commentBox);
     },
     createCommentBox = function(value) {
@@ -72,6 +86,11 @@ function Comments(instance) {
         comments.appendChild(textArea);
 
         dom.addClass(comments, 'htComments');
+
+        if (instance.getSettings().comments.readOnly) {
+          textArea.disabled = true;
+        }
+
         document.getElementsByTagName('body')[0].appendChild(comments);
       }
 
@@ -99,6 +118,7 @@ function Comments(instance) {
 
   return {
     init: function() {
+      _mouseListeners.mouseover = true;
       eventManager.addEventListener(document, 'mouseover', helper.proxy(commentsMouseOverListener));
     },
     showComment: function(range) {
@@ -156,6 +176,7 @@ var init = function() {
 
     defaultOptions.items.push({
       key: 'commentsAddEdit',
+      className: 'comment-menu-item',
       name: function() {
         var hasComment = Handsontable.Comments.checkSelectionCommentsConsistency();
         return hasComment ? "Edit Comment" : "Add Comment";
@@ -171,6 +192,7 @@ var init = function() {
 
     defaultOptions.items.push({
       key: 'commentsRemove',
+      className: 'comment-menu-item',
       name: function() {
         return "Delete Comment";
       },

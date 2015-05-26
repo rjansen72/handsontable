@@ -1835,6 +1835,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     /* jshint ignore:start */
     if (cellMeta[key] != undefined) {
       delete priv.cellSettings[row][col][key];
+      Handsontable.hooks.run(instance, 'afterClearCellMeta', row, col, key);
     }
     /* jshint ignore:end */
   };

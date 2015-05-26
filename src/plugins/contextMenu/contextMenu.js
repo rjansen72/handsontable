@@ -581,6 +581,10 @@ ContextMenu.prototype.renderer = function(instance, TD, row, col, prop, value) {
     });
 
   } else {
+    if (item.className) {
+      dom.addClass(wrapper, item.className);
+    }
+    
     if (isSubMenu(item)) {
       dom.addClass(TD, 'htSubmenu');
 
