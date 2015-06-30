@@ -48,11 +48,9 @@ function CellInfoCollection() {
 /**
  * Plugin used to merge cells in Handsontable
  *
+ * @private
+ * @plugin MergeCells
  * @class MergeCells
- * @private
- * @plugin
- * @constructor
- * @private
  */
 function MergeCells(mergeCellsSetting) {
   this.mergedCellInfoCollection = new CellInfoCollection();
@@ -517,6 +515,22 @@ var isMultipleSelection = function(isMultiple) {
   return isMultiple;
 };
 
+function afterAutofillApplyValues(select, drag) {
+  var mergeCellsSetting = this.getSettings().mergeCells;
+
+  if (!mergeCellsSetting || this.selection.isMultiple()) {
+    return;
+  }
+  var info = this.mergeCells.mergedCellInfoCollection.getInfo(select[0], select[1]);
+
+  if (info) {
+    select[0] = info.row;
+    select[1] = info.col;
+    select[2] = info.row + info.rowspan - 1;
+    select[3] = info.col + info.colspan - 1;
+  }
+}
+
 Handsontable.hooks.add('beforeInit', beforeInit);
 Handsontable.hooks.add('afterInit', afterInit);
 Handsontable.hooks.add('beforeKeyDown', onBeforeKeyDown);
@@ -530,6 +544,7 @@ Handsontable.hooks.add('afterContextMenuDefaultOptions', addMergeActionsToContex
 Handsontable.hooks.add('afterGetCellMeta', afterGetCellMeta);
 Handsontable.hooks.add('afterViewportRowCalculatorOverride', afterViewportRowCalculatorOverride);
 Handsontable.hooks.add('afterViewportColumnCalculatorOverride', afterViewportColumnCalculatorOverride);
+Handsontable.hooks.add('afterAutofillApplyValues', afterAutofillApplyValues);
 
 Handsontable.MergeCells = MergeCells;
 

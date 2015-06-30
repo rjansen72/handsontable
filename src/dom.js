@@ -733,6 +733,7 @@ export function hasCaptionProblem() {
 
 /**
  * Returns caret position in text input
+ *
  * @author http://stackoverflow.com/questions/263743/how-to-get-caret-position-in-textarea
  * @return {Number}
  */
@@ -740,34 +741,42 @@ export function getCaretPosition(el) {
   if (el.selectionStart) {
     return el.selectionStart;
   }
-  else if (document.selection) { //IE8
+  else if (document.selection) { // IE8
     el.focus();
-    var r = document.selection.createRange();
+
+    let r = document.selection.createRange();
+
     if (r == null) {
       return 0;
     }
-    var re = el.createTextRange(),
-      rc = re.duplicate();
+    let re = el.createTextRange();
+    let rc = re.duplicate();
+
     re.moveToBookmark(r.getBookmark());
     rc.setEndPoint('EndToStart', re);
+
     return rc.text.length;
   }
+
   return 0;
 }
 
 /**
  * Returns end of the selection in text input
+ *
  * @return {Number}
  */
 export function getSelectionEndPosition(el) {
   if (el.selectionEnd) {
     return el.selectionEnd;
+
   } else if (document.selection) { //IE8
-    var r = document.selection.createRange();
+    let r = document.selection.createRange();
+
     if (r == null) {
       return 0;
     }
-    var re = el.createTextRange();
+    let re = el.createTextRange();
 
     return re.text.indexOf(r.text) + r.text.length;
   }
@@ -786,7 +795,18 @@ export function setCaretPosition(el, pos, endPos) {
   }
   if (el.setSelectionRange) {
     el.focus();
-    el.setSelectionRange(pos, endPos);
+
+    try {
+      el.setSelectionRange(pos, endPos);
+    }
+    catch(err) {
+      var elementParent = el.parentNode;
+      var parentDisplayValue = elementParent.style.display;
+      elementParent.style.display = 'block';
+      el.setSelectionRange(pos, endPos);
+      elementParent.style.display = parentDisplayValue;
+    }
+
   }
   else if (el.createTextRange) { //IE8
     var range = el.createTextRange();
@@ -865,34 +885,35 @@ export function setOverlayPosition(overlayElem, left, top) {
     overlayElem.style.top = top;
     overlayElem.style.left = left;
   } else if (_isSafari) {
+    /* jshint sub:true */
     overlayElem.style['-webkit-transform'] = 'translate3d(' + left + ',' + top + ',0)';
   } else {
-    overlayElem.style['transform'] = 'translate3d(' + left + ',' + top + ',0)';
+    overlayElem.style.transform = 'translate3d(' + left + ',' + top + ',0)';
   }
 }
 
 export function getCssTransform(elem) {
   var transform;
 
-  /* jshint ignore:start */
-  if (elem.style['transform'] && (transform = elem.style['transform']) != "") {
+  /* jshint sub:true */
+  if (elem.style['transform'] && (transform = elem.style['transform']) !== '') {
     return ['transform', transform];
-  } else if (elem.style['-webkit-transform'] && (transform = elem.style['-webkit-transform']) != "") {
+
+  } else if (elem.style['-webkit-transform'] && (transform = elem.style['-webkit-transform']) !== '') {
+
     return ['-webkit-transform', transform];
-  } else {
-    return -1;
   }
-  /* jshint ignore:end */
+
+  return -1;
 }
 
 export function resetCssTransform(elem) {
-  /* jshint ignore:start */
-  if (elem['transform'] && elem['transform'] != "") {
-    elem['transform'] = "";
-  } else if (elem['-webkit-transform'] && elem['-webkit-transform'] != "") {
-    elem['-webkit-transform'] = "";
+  /* jshint sub:true */
+  if (elem['transform'] && elem['transform'] !== '') {
+    elem['transform'] = '';
+  } else if (elem['-webkit-transform'] && elem['-webkit-transform'] !== '') {
+    elem['-webkit-transform'] = '';
   }
-  /* jshint ignore:end */
 }
 
 window.Handsontable = window.Handsontable || {};

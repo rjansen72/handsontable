@@ -4,8 +4,8 @@ import {registerPlugin} from './../../plugins.js';
 
 
 /**
+ * @plugin TouchScroll
  * @class TouchScroll
- * @plugin
  */
 class TouchScroll extends BasePlugin {
   /**
@@ -15,6 +15,7 @@ class TouchScroll extends BasePlugin {
     super(hotInstance);
 
     this.hot.addHook('afterInit', () => this.init());
+    this.hot.addHook('afterUpdateSettings', () => this.onAfterUpdateSettings());
     this.scrollbars = [];
     this.clones = [];
   }
@@ -24,22 +25,35 @@ class TouchScroll extends BasePlugin {
    */
   init() {
     this.registerEvents();
+    this.onAfterUpdateSettings();
+  }
 
-    this.scrollbars.push(this.hot.view.wt.wtOverlays.topOverlay);
-    this.scrollbars.push(this.hot.view.wt.wtOverlays.leftOverlay);
+  onAfterUpdateSettings() {
+    var _this = this;
 
-    if (this.hot.view.wt.wtOverlays.topLeftCornerOverlay) {
-      this.scrollbars.push(this.hot.view.wt.wtOverlays.topLeftCornerOverlay);
-    }
-    if (this.hot.view.wt.wtOverlays.topOverlay.needFullRender) {
-      this.clones.push(this.hot.view.wt.wtOverlays.topOverlay.clone.wtTable.holder.parentNode);
-    }
-    if (this.hot.view.wt.wtOverlays.leftOverlay.needFullRender) {
-      this.clones.push(this.hot.view.wt.wtOverlays.leftOverlay.clone.wtTable.holder.parentNode);
-    }
-    if (this.hot.view.wt.wtOverlays.topLeftCornerOverlay) {
-      this.clones.push(this.hot.view.wt.wtOverlays.topLeftCornerOverlay.clone.wtTable.holder.parentNode);
-    }
+    // Wait for the overlays to render and update their .needFullRender property
+    this.hot.addHookOnce('afterRender', function() {
+      let wtOverlays = _this.hot.view.wt.wtOverlays;
+
+      _this.scrollbars = [];
+      _this.scrollbars.push(wtOverlays.topOverlay);
+      _this.scrollbars.push(wtOverlays.leftOverlay);
+
+      if (wtOverlays.topLeftCornerOverlay) {
+        _this.scrollbars.push(wtOverlays.topLeftCornerOverlay);
+      }
+      _this.clones = [];
+
+      if (wtOverlays.topOverlay.needFullRender) {
+        _this.clones.push(wtOverlays.topOverlay.clone.wtTable.holder.parentNode);
+      }
+      if (wtOverlays.leftOverlay.needFullRender) {
+        _this.clones.push(wtOverlays.leftOverlay.clone.wtTable.holder.parentNode);
+      }
+      if (wtOverlays.topLeftCornerOverlay) {
+        _this.clones.push(wtOverlays.topLeftCornerOverlay.clone.wtTable.holder.parentNode);
+      }
+    });
   }
 
   /**
@@ -66,6 +80,7 @@ class TouchScroll extends BasePlugin {
    */
   onAfterMomentumScroll() {
     Handsontable.freezeOverlays = false;
+    var _that = this;
 
     for (let i = 0, cloneCount = this.clones.length; i < cloneCount; i++) {
       dom.removeClass(this.clones[i], 'hide-tween');
@@ -76,8 +91,8 @@ class TouchScroll extends BasePlugin {
     }
 
     setTimeout(function() {
-      for (let i = 0, cloneCount = this.clones.length; i < cloneCount; i++) {
-        dom.removeClass(this.clones[i], 'show-tween');
+      for (let i = 0, cloneCount = _that.clones.length; i < cloneCount; i++) {
+        dom.removeClass(_that.clones[i], 'show-tween');
       }
     }, 400);
 

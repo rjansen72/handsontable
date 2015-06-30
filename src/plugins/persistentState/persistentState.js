@@ -59,9 +59,9 @@ function Storage(prefix) {
 }
 
 /**
- * @class PersistentState
  * @private
- * @plugin
+ * @class PersistentState
+ * @plugin PersistentState
  */
 function HandsontablePersistentState() {
   var plugin = this;
@@ -69,7 +69,7 @@ function HandsontablePersistentState() {
 
   this.init = function () {
     var instance = this,
-      pluginSettings = instance.getSettings()['persistentState'];
+      pluginSettings = instance.getSettings().persistentState;
 
     plugin.enabled = !!(pluginSettings);
 

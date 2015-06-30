@@ -1,24 +1,20 @@
 
 import * as dom from './../dom.js';
 import * as helper from './../helpers.js';
-import {autoResize} from './../3rdparty/autoResize.js';
+import autoResize from 'autoResize';
 import {BaseEditor} from './_baseEditor.js';
 import {eventManager as eventManagerObject} from './../eventManager.js';
 import {getEditor, registerEditor} from './../editors.js';
 
 var TextEditor = BaseEditor.prototype.extend();
 
-export {TextEditor};
-
-Handsontable.editors = Handsontable.editors || {};
 
 /**
  * @private
- * @editor
+ * @editor TextEditor
  * @class TextEditor
+ * @dependencies autoResize
  */
-Handsontable.editors.TextEditor = TextEditor;
-
 TextEditor.prototype.init = function() {
   var that = this;
   this.createElements();
@@ -45,30 +41,28 @@ var onBeforeKeyDown = function onBeforeKeyDown(event) {
     keyCodes, ctrlDown;
 
   keyCodes = helper.keyCode;
-  ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey; //catch CTRL but not right ALT (which in some systems triggers ALT+CTRL)
+  // catch CTRL but not right ALT (which in some systems triggers ALT+CTRL)
+  ctrlDown = (event.ctrlKey || event.metaKey) && !event.altKey;
   dom.enableImmediatePropagation(event);
 
-  //Process only events that have been fired in the editor
+  // Process only events that have been fired in the editor
   if (event.target !== that.TEXTAREA || event.isImmediatePropagationStopped()) {
     return;
   }
 
   if (event.keyCode === 17 || event.keyCode === 224 || event.keyCode === 91 || event.keyCode === 93) {
-    //when CTRL or its equivalent is pressed and cell is edited, don't prepare selectable text in textarea
+    // when CTRL or its equivalent is pressed and cell is edited, don't prepare selectable text in textarea
     event.stopImmediatePropagation();
     return;
   }
 
   switch (event.keyCode) {
     case keyCodes.ARROW_RIGHT:
-      if (dom.getCaretPosition(that.TEXTAREA) !== that.TEXTAREA.value.length) {
-        event.stopImmediatePropagation();
-      }
-      break;
-
     case keyCodes.ARROW_LEFT:
-      /* arrow left */
-      if (dom.getCaretPosition(that.TEXTAREA) !== 0) {
+    case keyCodes.ARROW_UP:
+    case keyCodes.ARROW_DOWN:
+
+      if (!that.isWaiting()) {
         event.stopImmediatePropagation();
       }
       break;
@@ -361,5 +355,7 @@ TextEditor.prototype.bindEvents = function() {
 TextEditor.prototype.destroy = function() {
   this.eventManager.clear();
 };
+
+export {TextEditor};
 
 registerEditor('text', TextEditor);
