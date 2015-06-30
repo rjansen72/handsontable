@@ -7,7 +7,7 @@
  * Licensed under the MIT license.
  * http://handsontable.com/
  *
- * Date: Thu May 21 2015 12:12:59 GMT+0200 (CEST)
+ * Date: Wed May 27 2015 09:13:31 GMT-0400 (EDT)
  */
 /*jslint white: true, browser: true, plusplus: true, indent: 4, maxerr: 50 */
 
@@ -5478,6 +5478,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     var cellMeta = instance.getCellMeta(row, col);
     if (cellMeta[key] != undefined) {
       delete priv.cellSettings[row][col][key];
+      Handsontable.hooks.run(instance, 'afterClearCellMeta', row, col, key);
     }
   };
   this.setCellMetaObject = function(row, col, prop) {
@@ -9793,6 +9794,7 @@ var PluginHook = function PluginHook() {
     afterValidate: [],
     afterGetCellMeta: [],
     afterSetCellMeta: [],
+    afterClearCellMeta: [],
     afterGetColHeader: [],
     afterGetRowHeader: [],
     afterDestroy: [],
@@ -10725,7 +10727,8 @@ var helper = ($___46__46__47__46__46__47_helpers_46_js__ = require("./../../help
 var eventManagerObject = ($___46__46__47__46__46__47_eventManager_46_js__ = require("./../../eventManager.js"), $___46__46__47__46__46__47_eventManager_46_js__ && $___46__46__47__46__46__47_eventManager_46_js__.__esModule && $___46__46__47__46__46__47_eventManager_46_js__ || {default: $___46__46__47__46__46__47_eventManager_46_js__}).eventManager;
 var WalkontableCellCoords = ($___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__ = require("./../../3rdparty/walkontable/src/cell/coords.js"), $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__ && $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__.__esModule && $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__ || {default: $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__}).WalkontableCellCoords;
 function Comments(instance) {
-  var eventManager = eventManagerObject(instance),
+  var _mouseListeners = {},
+      eventManager = eventManagerObject(instance),
       doSaveComment = function(row, col, comment, instance) {
         instance.setCellMeta(row, col, 'comment', comment);
         instance.render();
@@ -10740,8 +10743,11 @@ function Comments(instance) {
       },
       bindMouseEvent = function(range) {
         function commentsListener(event) {
-          eventManager.removeEventListener(document, 'mouseover');
-          if (!(event.target.className == 'htCommentTextArea' || event.target.innerHTML.indexOf('Comment') != -1)) {
+          if (_mouseListeners.mouseover) {
+            eventManager.removeEventListener(document, 'mouseover');
+            _mouseListeners.mouseover = false;
+          }
+          if (!(event.target.className == 'htCommentTextArea' || event.target.className == 'comment-menu-item' || event.target.innerHTML.indexOf('Comment') != -1)) {
             var value = document.querySelector('.htCommentTextArea').value;
             if (value.trim().length > 1) {
               saveComment(range, value, instance);
@@ -10750,11 +10756,20 @@ function Comments(instance) {
             hideCommentTextArea();
           }
         }
-        eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsListener));
+        if (!_mouseListeners.mousedown) {
+          _mouseListeners.mousedown = true;
+          eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsListener));
+        }
       },
       unBindMouseEvent = function() {
-        eventManager.removeEventListener(document, 'mousedown');
-        eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsMouseOverListener));
+        if (_mouseListeners.mousedown) {
+          _mouseListeners.mousedown = false;
+          eventManager.removeEventListener(document, 'mousedown');
+        }
+        if (!_mouseListeners.mouseover) {
+          _mouseListeners.mouseover = true;
+          eventManager.addEventListener(document, 'mouseover', helper.proxy(commentsMouseOverListener));
+        }
       },
       placeCommentBox = function(range, commentBox) {
         var TD = instance.view.wt.wtTable.getCell(range.from),
@@ -10763,7 +10778,7 @@ function Comments(instance) {
         commentBox.style.position = 'absolute';
         commentBox.style.left = offset.left + lastColWidth + 'px';
         commentBox.style.top = offset.top + 'px';
-        commentBox.style.zIndex = 2;
+        commentBox.style.zIndex = 2000;
         bindMouseEvent(range, commentBox);
       },
       createCommentBox = function(value) {
@@ -10774,6 +10789,9 @@ function Comments(instance) {
           dom.addClass(textArea, 'htCommentTextArea');
           comments.appendChild(textArea);
           dom.addClass(comments, 'htComments');
+          if (instance.getSettings().comments.readOnly) {
+            textArea.disabled = true;
+          }
           document.getElementsByTagName('body')[0].appendChild(comments);
         }
         value = value || '';
@@ -10792,6 +10810,7 @@ function Comments(instance) {
       };
   return {
     init: function() {
+      _mouseListeners.mouseover = true;
       eventManager.addEventListener(document, 'mouseover', helper.proxy(commentsMouseOverListener));
     },
     showComment: function(range) {
@@ -10839,6 +10858,7 @@ var init = function() {
       defaultOptions.items.push(Handsontable.ContextMenu.SEPARATOR);
       defaultOptions.items.push({
         key: 'commentsAddEdit',
+        className: 'comment-menu-item',
         name: function() {
           var hasComment = Handsontable.Comments.checkSelectionCommentsConsistency();
           return hasComment ? "Edit Comment" : "Add Comment";
@@ -10852,6 +10872,7 @@ var init = function() {
       });
       defaultOptions.items.push({
         key: 'commentsRemove',
+        className: 'comment-menu-item',
         name: function() {
           return "Delete Comment";
         },
@@ -11350,6 +11371,9 @@ ContextMenu.prototype.renderer = function(instance, TD, row, col, prop, value) {
       instance.deselectCell();
     });
   } else {
+    if (item.className) {
+      dom.addClass(wrapper, item.className);
+    }
     if (isSubMenu(item)) {
       dom.addClass(TD, 'htSubmenu');
       this.eventManager.addEventListener(wrapper, 'mouseenter', function() {
@@ -17633,7 +17657,7 @@ Handsontable.NumericValidator = function(value, callback) {
 //# 
 },{}],"moment":[function(require,module,exports){
 //! moment.js
-//! version : 2.10.2
+//! version : 2.10.3
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
 //! license : MIT
 //! momentjs.com
@@ -17656,28 +17680,12 @@ Handsontable.NumericValidator = function(value, callback) {
         hookCallback = callback;
     }
 
-    function defaultParsingFlags() {
-        // We need to deep clone this object.
-        return {
-            empty           : false,
-            unusedTokens    : [],
-            unusedInput     : [],
-            overflow        : -2,
-            charsLeftOver   : 0,
-            nullInput       : false,
-            invalidMonth    : null,
-            invalidFormat   : false,
-            userInvalidated : false,
-            iso             : false
-        };
-    }
-
     function isArray(input) {
         return Object.prototype.toString.call(input) === '[object Array]';
     }
 
     function isDate(input) {
-        return Object.prototype.toString.call(input) === '[object Date]' || input instanceof Date;
+        return input instanceof Date || Object.prototype.toString.call(input) === '[object Date]';
     }
 
     function map(arr, fn) {
@@ -17714,21 +17722,45 @@ Handsontable.NumericValidator = function(value, callback) {
         return createLocalOrUTC(input, format, locale, strict, true).utc();
     }
 
+    function defaultParsingFlags() {
+        // We need to deep clone this object.
+        return {
+            empty           : false,
+            unusedTokens    : [],
+            unusedInput     : [],
+            overflow        : -2,
+            charsLeftOver   : 0,
+            nullInput       : false,
+            invalidMonth    : null,
+            invalidFormat   : false,
+            userInvalidated : false,
+            iso             : false
+        };
+    }
+
+    function getParsingFlags(m) {
+        if (m._pf == null) {
+            m._pf = defaultParsingFlags();
+        }
+        return m._pf;
+    }
+
     function valid__isValid(m) {
         if (m._isValid == null) {
+            var flags = getParsingFlags(m);
             m._isValid = !isNaN(m._d.getTime()) &&
-                m._pf.overflow < 0 &&
-                !m._pf.empty &&
-                !m._pf.invalidMonth &&
-                !m._pf.nullInput &&
-                !m._pf.invalidFormat &&
-                !m._pf.userInvalidated;
+                flags.overflow < 0 &&
+                !flags.empty &&
+                !flags.invalidMonth &&
+                !flags.nullInput &&
+                !flags.invalidFormat &&
+                !flags.userInvalidated;
 
             if (m._strict) {
                 m._isValid = m._isValid &&
-                    m._pf.charsLeftOver === 0 &&
-                    m._pf.unusedTokens.length === 0 &&
-                    m._pf.bigHour === undefined;
+                    flags.charsLeftOver === 0 &&
+                    flags.unusedTokens.length === 0 &&
+                    flags.bigHour === undefined;
             }
         }
         return m._isValid;
@@ -17737,10 +17769,10 @@ Handsontable.NumericValidator = function(value, callback) {
     function valid__createInvalid (flags) {
         var m = create_utc__createUTC(NaN);
         if (flags != null) {
-            extend(m._pf, flags);
+            extend(getParsingFlags(m), flags);
         }
         else {
-            m._pf.userInvalidated = true;
+            getParsingFlags(m).userInvalidated = true;
         }
 
         return m;
@@ -17776,7 +17808,7 @@ Handsontable.NumericValidator = function(value, callback) {
             to._offset = from._offset;
         }
         if (typeof from._pf !== 'undefined') {
-            to._pf = from._pf;
+            to._pf = getParsingFlags(from);
         }
         if (typeof from._locale !== 'undefined') {
             to._locale = from._locale;
@@ -17811,7 +17843,7 @@ Handsontable.NumericValidator = function(value, callback) {
     }
 
     function isMoment (obj) {
-        return obj instanceof Moment || (obj != null && hasOwnProp(obj, '_isAMomentObject'));
+        return obj instanceof Moment || (obj != null && obj._isAMomentObject != null);
     }
 
     function toInt(argumentForCoercion) {
@@ -18249,7 +18281,7 @@ Handsontable.NumericValidator = function(value, callback) {
         if (month != null) {
             array[MONTH] = month;
         } else {
-            config._pf.invalidMonth = input;
+            getParsingFlags(config).invalidMonth = input;
         }
     });
 
@@ -18333,7 +18365,7 @@ Handsontable.NumericValidator = function(value, callback) {
         var overflow;
         var a = m._a;
 
-        if (a && m._pf.overflow === -2) {
+        if (a && getParsingFlags(m).overflow === -2) {
             overflow =
                 a[MONTH]       < 0 || a[MONTH]       > 11  ? MONTH :
                 a[DATE]        < 1 || a[DATE]        > daysInMonth(a[YEAR], a[MONTH]) ? DATE :
@@ -18343,11 +18375,11 @@ Handsontable.NumericValidator = function(value, callback) {
                 a[MILLISECOND] < 0 || a[MILLISECOND] > 999 ? MILLISECOND :
                 -1;
 
-            if (m._pf._overflowDayOfYear && (overflow < YEAR || overflow > DATE)) {
+            if (getParsingFlags(m)._overflowDayOfYear && (overflow < YEAR || overflow > DATE)) {
                 overflow = DATE;
             }
 
-            m._pf.overflow = overflow;
+            getParsingFlags(m).overflow = overflow;
         }
 
         return m;
@@ -18360,10 +18392,12 @@ Handsontable.NumericValidator = function(value, callback) {
     }
 
     function deprecate(msg, fn) {
-        var firstTime = true;
+        var firstTime = true,
+            msgWithStack = msg + '\n' + (new Error()).stack;
+
         return extend(function () {
             if (firstTime) {
-                warn(msg);
+                warn(msgWithStack);
                 firstTime = false;
             }
             return fn.apply(this, arguments);
@@ -18408,7 +18442,7 @@ Handsontable.NumericValidator = function(value, callback) {
             match = from_string__isoRegex.exec(string);
 
         if (match) {
-            config._pf.iso = true;
+            getParsingFlags(config).iso = true;
             for (i = 0, l = isoDates.length; i < l; i++) {
                 if (isoDates[i][1].exec(string)) {
                     // match[5] should be 'T' or undefined
@@ -18688,7 +18722,7 @@ Handsontable.NumericValidator = function(value, callback) {
             yearToUse = defaults(config._a[YEAR], currentDate[YEAR]);
 
             if (config._dayOfYear > daysInYear(yearToUse)) {
-                config._pf._overflowDayOfYear = true;
+                getParsingFlags(config)._overflowDayOfYear = true;
             }
 
             date = createUTCDate(yearToUse, 0, config._dayOfYear);
@@ -18784,7 +18818,7 @@ Handsontable.NumericValidator = function(value, callback) {
         }
 
         config._a = [];
-        config._pf.empty = true;
+        getParsingFlags(config).empty = true;
 
         // This array is used to make a Date, either with `new Date` or `Date.UTC`
         var string = '' + config._i,
@@ -18800,7 +18834,7 @@ Handsontable.NumericValidator = function(value, callback) {
             if (parsedInput) {
                 skipped = string.substr(0, string.indexOf(parsedInput));
                 if (skipped.length > 0) {
-                    config._pf.unusedInput.push(skipped);
+                    getParsingFlags(config).unusedInput.push(skipped);
                 }
                 string = string.slice(string.indexOf(parsedInput) + parsedInput.length);
                 totalParsedInputLength += parsedInput.length;
@@ -18808,27 +18842,29 @@ Handsontable.NumericValidator = function(value, callback) {
             // don't parse if it's not a known token
             if (formatTokenFunctions[token]) {
                 if (parsedInput) {
-                    config._pf.empty = false;
+                    getParsingFlags(config).empty = false;
                 }
                 else {
-                    config._pf.unusedTokens.push(token);
+                    getParsingFlags(config).unusedTokens.push(token);
                 }
                 addTimeToArrayFromToken(token, parsedInput, config);
             }
             else if (config._strict && !parsedInput) {
-                config._pf.unusedTokens.push(token);
+                getParsingFlags(config).unusedTokens.push(token);
             }
         }
 
         // add remaining unparsed input length to the string
-        config._pf.charsLeftOver = stringLength - totalParsedInputLength;
+        getParsingFlags(config).charsLeftOver = stringLength - totalParsedInputLength;
         if (string.length > 0) {
-            config._pf.unusedInput.push(string);
+            getParsingFlags(config).unusedInput.push(string);
         }
 
         // clear _12h flag if hour is <= 12
-        if (config._pf.bigHour === true && config._a[HOUR] <= 12) {
-            config._pf.bigHour = undefined;
+        if (getParsingFlags(config).bigHour === true &&
+                config._a[HOUR] <= 12 &&
+                config._a[HOUR] > 0) {
+            getParsingFlags(config).bigHour = undefined;
         }
         // handle meridiem
         config._a[HOUR] = meridiemFixWrap(config._locale, config._a[HOUR], config._meridiem);
@@ -18872,7 +18908,7 @@ Handsontable.NumericValidator = function(value, callback) {
             currentScore;
 
         if (config._f.length === 0) {
-            config._pf.invalidFormat = true;
+            getParsingFlags(config).invalidFormat = true;
             config._d = new Date(NaN);
             return;
         }
@@ -18883,7 +18919,6 @@ Handsontable.NumericValidator = function(value, callback) {
             if (config._useUTC != null) {
                 tempConfig._useUTC = config._useUTC;
             }
-            tempConfig._pf = defaultParsingFlags();
             tempConfig._f = config._f[i];
             configFromStringAndFormat(tempConfig);
 
@@ -18892,12 +18927,12 @@ Handsontable.NumericValidator = function(value, callback) {
             }
 
             // if there is any input that was not parsed add a penalty for that format
-            currentScore += tempConfig._pf.charsLeftOver;
+            currentScore += getParsingFlags(tempConfig).charsLeftOver;
 
             //or tokens
-            currentScore += tempConfig._pf.unusedTokens.length * 10;
+            currentScore += getParsingFlags(tempConfig).unusedTokens.length * 10;
 
-            tempConfig._pf.score = currentScore;
+            getParsingFlags(tempConfig).score = currentScore;
 
             if (scoreToBeat == null || currentScore < scoreToBeat) {
                 scoreToBeat = currentScore;
@@ -18940,6 +18975,8 @@ Handsontable.NumericValidator = function(value, callback) {
             configFromStringAndArray(config);
         } else if (format) {
             configFromStringAndFormat(config);
+        } else if (isDate(input)) {
+            config._d = input;
         } else {
             configFromInput(config);
         }
@@ -18992,7 +19029,6 @@ Handsontable.NumericValidator = function(value, callback) {
         c._i = input;
         c._f = format;
         c._strict = strict;
-        c._pf = defaultParsingFlags();
 
         return createFromConfig(c);
     }
@@ -19566,11 +19602,25 @@ Handsontable.NumericValidator = function(value, callback) {
     }
 
     function from (time, withoutSuffix) {
+        if (!this.isValid()) {
+            return this.localeData().invalidDate();
+        }
         return create__createDuration({to: this, from: time}).locale(this.locale()).humanize(!withoutSuffix);
     }
 
     function fromNow (withoutSuffix) {
         return this.from(local__createLocal(), withoutSuffix);
+    }
+
+    function to (time, withoutSuffix) {
+        if (!this.isValid()) {
+            return this.localeData().invalidDate();
+        }
+        return create__createDuration({from: this, to: time}).locale(this.locale()).humanize(!withoutSuffix);
+    }
+
+    function toNow (withoutSuffix) {
+        return this.to(local__createLocal(), withoutSuffix);
     }
 
     function locale (key) {
@@ -19675,11 +19725,11 @@ Handsontable.NumericValidator = function(value, callback) {
     }
 
     function parsingFlags () {
-        return extend({}, this._pf);
+        return extend({}, getParsingFlags(this));
     }
 
     function invalidAt () {
-        return this._pf.overflow;
+        return getParsingFlags(this).overflow;
     }
 
     addFormatToken(0, ['gg', 2], 0, function () {
@@ -19830,7 +19880,7 @@ Handsontable.NumericValidator = function(value, callback) {
         if (weekday != null) {
             week.d = weekday;
         } else {
-            config._pf.invalidWeekday = input;
+            getParsingFlags(config).invalidWeekday = input;
         }
     });
 
@@ -19955,7 +20005,7 @@ Handsontable.NumericValidator = function(value, callback) {
     });
     addParseToken(['h', 'hh'], function (input, array, config) {
         array[HOUR] = toInt(input);
-        config._pf.bigHour = true;
+        getParsingFlags(config).bigHour = true;
     });
 
     // LOCALES
@@ -20072,6 +20122,8 @@ Handsontable.NumericValidator = function(value, callback) {
     momentPrototype__proto.format       = format;
     momentPrototype__proto.from         = from;
     momentPrototype__proto.fromNow      = fromNow;
+    momentPrototype__proto.to           = to;
+    momentPrototype__proto.toNow        = toNow;
     momentPrototype__proto.get          = getSet;
     momentPrototype__proto.invalidAt    = invalidAt;
     momentPrototype__proto.isAfter      = isAfter;
@@ -20260,7 +20312,7 @@ Handsontable.NumericValidator = function(value, callback) {
         }
         // Lenient ordinal parsing accepts just a number in addition to
         // number + (possibly) stuff coming from _ordinalParseLenient.
-        this._ordinalParseLenient = new RegExp(this._ordinalParse.source + '|' + /\d{1,2}/.source);
+        this._ordinalParseLenient = new RegExp(this._ordinalParse.source + '|' + (/\d{1,2}/).source);
     }
 
     var prototype__proto = Locale.prototype;
@@ -20477,13 +20529,13 @@ Handsontable.NumericValidator = function(value, callback) {
             // handle milliseconds separately because of floating point math errors (issue #1867)
             days = this._days + Math.round(yearsToDays(this._months / 12));
             switch (units) {
-                case 'week'   : return days / 7            + milliseconds / 6048e5;
-                case 'day'    : return days                + milliseconds / 864e5;
-                case 'hour'   : return days * 24           + milliseconds / 36e5;
-                case 'minute' : return days * 24 * 60      + milliseconds / 6e4;
-                case 'second' : return days * 24 * 60 * 60 + milliseconds / 1000;
+                case 'week'   : return days / 7     + milliseconds / 6048e5;
+                case 'day'    : return days         + milliseconds / 864e5;
+                case 'hour'   : return days * 24    + milliseconds / 36e5;
+                case 'minute' : return days * 1440  + milliseconds / 6e4;
+                case 'second' : return days * 86400 + milliseconds / 1000;
                 // Math.floor prevents floating point math errors here
-                case 'millisecond': return Math.floor(days * 24 * 60 * 60 * 1000) + milliseconds;
+                case 'millisecond': return Math.floor(days * 864e5) + milliseconds;
                 default: throw new Error('Unknown unit ' + units);
             }
         }
@@ -20684,7 +20736,7 @@ Handsontable.NumericValidator = function(value, callback) {
     // Side effect imports
 
 
-    utils_hooks__hooks.version = '2.10.2';
+    utils_hooks__hooks.version = '2.10.3';
 
     setHookCallback(local__createLocal);
 

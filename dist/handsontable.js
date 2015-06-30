@@ -7,7 +7,7 @@
  * Licensed under the MIT license.
  * http://handsontable.com/
  *
- * Date: Thu May 21 2015 12:12:59 GMT+0200 (CEST)
+ * Date: Wed May 27 2015 09:13:31 GMT-0400 (EDT)
  */
 /*jslint white: true, browser: true, plusplus: true, indent: 4, maxerr: 50 */
 
@@ -5478,6 +5478,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     var cellMeta = instance.getCellMeta(row, col);
     if (cellMeta[key] != undefined) {
       delete priv.cellSettings[row][col][key];
+      Handsontable.hooks.run(instance, 'afterClearCellMeta', row, col, key);
     }
   };
   this.setCellMetaObject = function(row, col, prop) {
@@ -9793,6 +9794,7 @@ var PluginHook = function PluginHook() {
     afterValidate: [],
     afterGetCellMeta: [],
     afterSetCellMeta: [],
+    afterClearCellMeta: [],
     afterGetColHeader: [],
     afterGetRowHeader: [],
     afterDestroy: [],
@@ -10725,7 +10727,8 @@ var helper = ($___46__46__47__46__46__47_helpers_46_js__ = require("./../../help
 var eventManagerObject = ($___46__46__47__46__46__47_eventManager_46_js__ = require("./../../eventManager.js"), $___46__46__47__46__46__47_eventManager_46_js__ && $___46__46__47__46__46__47_eventManager_46_js__.__esModule && $___46__46__47__46__46__47_eventManager_46_js__ || {default: $___46__46__47__46__46__47_eventManager_46_js__}).eventManager;
 var WalkontableCellCoords = ($___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__ = require("./../../3rdparty/walkontable/src/cell/coords.js"), $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__ && $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__.__esModule && $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__ || {default: $___46__46__47__46__46__47_3rdparty_47_walkontable_47_src_47_cell_47_coords_46_js__}).WalkontableCellCoords;
 function Comments(instance) {
-  var eventManager = eventManagerObject(instance),
+  var _mouseListeners = {},
+      eventManager = eventManagerObject(instance),
       doSaveComment = function(row, col, comment, instance) {
         instance.setCellMeta(row, col, 'comment', comment);
         instance.render();
@@ -10740,8 +10743,11 @@ function Comments(instance) {
       },
       bindMouseEvent = function(range) {
         function commentsListener(event) {
-          eventManager.removeEventListener(document, 'mouseover');
-          if (!(event.target.className == 'htCommentTextArea' || event.target.innerHTML.indexOf('Comment') != -1)) {
+          if (_mouseListeners.mouseover) {
+            eventManager.removeEventListener(document, 'mouseover');
+            _mouseListeners.mouseover = false;
+          }
+          if (!(event.target.className == 'htCommentTextArea' || event.target.className == 'comment-menu-item' || event.target.innerHTML.indexOf('Comment') != -1)) {
             var value = document.querySelector('.htCommentTextArea').value;
             if (value.trim().length > 1) {
               saveComment(range, value, instance);
@@ -10750,11 +10756,20 @@ function Comments(instance) {
             hideCommentTextArea();
           }
         }
-        eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsListener));
+        if (!_mouseListeners.mousedown) {
+          _mouseListeners.mousedown = true;
+          eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsListener));
+        }
       },
       unBindMouseEvent = function() {
-        eventManager.removeEventListener(document, 'mousedown');
-        eventManager.addEventListener(document, 'mousedown', helper.proxy(commentsMouseOverListener));
+        if (_mouseListeners.mousedown) {
+          _mouseListeners.mousedown = false;
+          eventManager.removeEventListener(document, 'mousedown');
+        }
+        if (!_mouseListeners.mouseover) {
+          _mouseListeners.mouseover = true;
+          eventManager.addEventListener(document, 'mouseover', helper.proxy(commentsMouseOverListener));
+        }
       },
       placeCommentBox = function(range, commentBox) {
         var TD = instance.view.wt.wtTable.getCell(range.from),
@@ -10763,7 +10778,7 @@ function Comments(instance) {
         commentBox.style.position = 'absolute';
         commentBox.style.left = offset.left + lastColWidth + 'px';
         commentBox.style.top = offset.top + 'px';
-        commentBox.style.zIndex = 2;
+        commentBox.style.zIndex = 2000;
         bindMouseEvent(range, commentBox);
       },
       createCommentBox = function(value) {
@@ -10774,6 +10789,9 @@ function Comments(instance) {
           dom.addClass(textArea, 'htCommentTextArea');
           comments.appendChild(textArea);
           dom.addClass(comments, 'htComments');
+          if (instance.getSettings().comments.readOnly) {
+            textArea.disabled = true;
+          }
           document.getElementsByTagName('body')[0].appendChild(comments);
         }
         value = value || '';
@@ -10792,6 +10810,7 @@ function Comments(instance) {
       };
   return {
     init: function() {
+      _mouseListeners.mouseover = true;
       eventManager.addEventListener(document, 'mouseover', helper.proxy(commentsMouseOverListener));
     },
     showComment: function(range) {
@@ -10839,6 +10858,7 @@ var init = function() {
       defaultOptions.items.push(Handsontable.ContextMenu.SEPARATOR);
       defaultOptions.items.push({
         key: 'commentsAddEdit',
+        className: 'comment-menu-item',
         name: function() {
           var hasComment = Handsontable.Comments.checkSelectionCommentsConsistency();
           return hasComment ? "Edit Comment" : "Add Comment";
@@ -10852,6 +10872,7 @@ var init = function() {
       });
       defaultOptions.items.push({
         key: 'commentsRemove',
+        className: 'comment-menu-item',
         name: function() {
           return "Delete Comment";
         },
@@ -11350,6 +11371,9 @@ ContextMenu.prototype.renderer = function(instance, TD, row, col, prop, value) {
       instance.deselectCell();
     });
   } else {
+    if (item.className) {
+      dom.addClass(wrapper, item.className);
+    }
     if (isSubMenu(item)) {
       dom.addClass(TD, 'htSubmenu');
       this.eventManager.addEventListener(wrapper, 'mouseenter', function() {
