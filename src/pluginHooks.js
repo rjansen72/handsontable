@@ -194,6 +194,17 @@ const REGISTERED_HOOKS = [
   "afterOnCellMouseOver",
 
   /**
+   * Called after cell meta was removed, e.g. comments.
+   *
+   * @event Hooks#afterRemoveCellMeta
+   * @since 0.15.2
+   * @param {Number} row
+   * @param {Number} col
+   * @param {String} key
+   */
+  "afterRemoveCellMeta",
+  
+  /**
    * Callback is fired when one or more columns are removed.
    *
    * @event Hooks#afterRemoveCol
