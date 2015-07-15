@@ -15,6 +15,7 @@ class WalkontableTableRenderer {
     this.wot = wtTable.instance;
     // legacy support
     this.instance = wtTable.instance;
+
     this.rowFilter = wtTable.rowFilter;
     this.columnFilter = wtTable.columnFilter;
 
@@ -66,10 +67,8 @@ class WalkontableTableRenderer {
       if (!this.wtTable.isWorkingOnClone()) {
         workspaceWidth = this.wot.wtViewport.getWorkspaceWidth();
         this.wot.wtViewport.containerWidth = null;
-
-      } else {
-        this.adjustColumnHeaderHeights();
       }
+      this.adjustColumnHeaderHeights();
       this.adjustColumnWidths(columnsToRender);
     }
 
