@@ -290,12 +290,7 @@ DataMap.prototype.removeRow = function (index, amount) {
   }
 
   var data = this.dataSource;
-  var newData = data.filter(function(row, index) {
-    return logicRows.indexOf(index) == -1;
-  });
-
-  data.length = 0;
-  Array.prototype.push.apply(data, newData);
+  data.splice(index, amount);
 
   Handsontable.hooks.run(this.instance, 'afterRemoveRow', index, amount);
 
