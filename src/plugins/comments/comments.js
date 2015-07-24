@@ -6,7 +6,6 @@ import BasePlugin from './../_base.js';
 import {CommentEditor} from './commentEditor.js';
 
 /**
- * @class Comments
  * @plugin Comments
  *
  * @description
@@ -45,21 +44,14 @@ import {CommentEditor} from './commentEditor.js';
  * ```
  */
 class Comments extends BasePlugin {
-  /**
-   * @param {Core} hotInstance Handsontable instance passed in plugin class constructor
-   */
   constructor(hotInstance) {
     super(hotInstance);
-
-    if (!this.hot.getSettings().comments) {
-      return;
-    }
     /**
      * Instance of {@link CommentEditor}
      *
      * @type {CommentEditor}
      */
-    this.editor = new CommentEditor();
+    this.editor = null;
 
     /**
      * Instance of {@link EventManager}
@@ -67,7 +59,7 @@ class Comments extends BasePlugin {
      * @private
      * @type {EventManager}
      */
-    this.eventManager = new EventManager(this);
+    this.eventManager = null;
 
     /**
      * Current cell range
@@ -93,13 +85,37 @@ class Comments extends BasePlugin {
      * @type {*}
      */
     this.timer = null;
+  }
 
-    this.hot.addHook('afterInit', () => this.registerListeners());
-    this.hot.addHook('afterContextMenuDefaultOptions', (options) => this.addToContextMenu(options));
-    this.hot.addHook('afterRenderer', (TD, row, col, prop, value, cellProperties) => this.onAfterRenderer(TD, cellProperties));
-    this.hot.addHook('afterScrollVertically', () => this.refreshEditorPosition());
-    this.hot.addHook('afterColumnResize', () => this.refreshEditorPosition());
-    this.hot.addHook('afterRowResize', () => this.refreshEditorPosition());
+  /**
+   * Check if the plugin is enabled in the handsontable settings.
+   *
+   * @returns {Boolean}
+   */
+  isEnabled() {
+    return this.hot.getSettings().comments;
+  }
+
+  /**
+   * Enable plugin for this Handsontable instance.
+   */
+  enablePlugin() {
+    if (this.enabled) {
+      return;
+    }
+    if (!this.editor) {
+      this.editor = new CommentEditor();
+    }
+    if (!this.eventManager) {
+      this.eventManager = new EventManager(this);
+    }
+    this.addHook('afterContextMenuDefaultOptions', (options) => this.addToContextMenu(options));
+    this.addHook('afterRenderer', (TD, row, col, prop, value, cellProperties) => this.onAfterRenderer(TD, cellProperties));
+    this.addHook('afterScrollVertically', () => this.refreshEditorPosition());
+    this.addHook('afterColumnResize', () => this.refreshEditorPosition());
+    this.addHook('afterRowResize', () => this.refreshEditorPosition());
+    this.registerListeners();
+    super.enablePlugin();
   }
 
   /**
@@ -467,9 +483,6 @@ class Comments extends BasePlugin {
    * Destroy plugin instance.
    */
   destroy() {
-    if (this.eventManager) {
-      this.eventManager.clear();
-    }
     if (this.editor) {
       this.editor.destroy();
     }

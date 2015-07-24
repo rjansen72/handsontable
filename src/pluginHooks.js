@@ -414,12 +414,11 @@ const REGISTERED_HOOKS = [
    * @description
    * Callback fired before Handsontable instance is initiated.
    *
-   * __Note:__ This can be set only by global Hooks instance.
-   *
    * @event Hooks#beforeInit
    */
 
   "beforeInit",
+
   /**
    * Callback fired before Walkontable instance is initiated.
    *
@@ -500,6 +499,22 @@ const REGISTERED_HOOKS = [
   "beforeValidate",
 
   /**
+   * Callback fired after Handsontable instance is constructed (via `new` operator).
+   *
+   * @event Hooks#construct
+   * @since 0.16.1
+   */
+  "construct",
+
+  /**
+   * Callback fired after Handsontable instance is initiated but before table is rendered.
+   *
+   * @event Hooks#init
+   * @since 0.16.1
+   */
+  "init",
+
+  /**
    * Callback fired after column modify.
    *
    * @event Hooks#modifyCol
@@ -554,6 +569,7 @@ const REGISTERED_HOOKS = [
 ];
 
 import {EventManager} from './eventManager.js';
+import {arrayEach, objectEach} from './helpers.js';
 
 class Hooks {
   /**
@@ -582,13 +598,11 @@ class Hooks {
    * ```
    */
   createEmptyBucket() {
-    const handler = Object.create(null);
+    const bucket = Object.create(null);
 
-    for (let i = 0, len = REGISTERED_HOOKS.length; i < len; i++) {
-      handler[REGISTERED_HOOKS[i]] = [];
-    }
+    arrayEach(REGISTERED_HOOKS, (hook) => (bucket[hook] = []));
 
-    return handler;
+    return bucket;
   }
 
   /**
@@ -625,11 +639,10 @@ class Hooks {
    */
   add(key, callback, context = null) {
     if (Array.isArray(callback)) {
-      for (let i = 0, len = callback.length; i < len; i++) {
-        this.add(key, callback[i]);
-      }
+      arrayEach(callback, (c) => (this.add(key, c, context)));
+
     } else {
-      let bucket = this.getBucket(context);
+      const bucket = this.getBucket(context);
 
       if (typeof bucket[key] === 'undefined') {
         this.register(key);
@@ -661,10 +674,7 @@ class Hooks {
    */
   once(key, callback, context = null) {
     if (Array.isArray(callback)) {
-      for (let i = 0, len = callback.length; i < len; i++) {
-        callback[i].runOnce = true;
-        this.add(key, callback[i], context);
-      }
+      arrayEach(callback, (c) => (this.once(key, c, context)));
 
     } else {
       callback.runOnce = true;
@@ -722,42 +732,42 @@ class Hooks {
   run(context, key, p1, p2, p3, p4, p5, p6) {
     {
       const globalHandlers = this.globalBucket[key];
-      let len = globalHandlers ? globalHandlers.length : 0;
 
-      for (let i = 0; i < len; i++) {
-        if (globalHandlers[i].skip) {
-          continue;
-        }
-        // performance considerations - http://jsperf.com/call-vs-apply-for-a-plugin-architecture
-        let res = globalHandlers[i].call(context, p1, p2, p3, p4, p5, p6);
+      if (globalHandlers && globalHandlers.length) {
+        arrayEach(globalHandlers, (handler) => {
+          if (!handler || handler.skip) {
+            return;
+          }
+          // performance considerations - http://jsperf.com/call-vs-apply-for-a-plugin-architecture
+          let res = handler.call(context, p1, p2, p3, p4, p5, p6);
 
-        if (res !== void 0) {
-          p1 = res;
-        }
-
-        if (globalHandlers[i].runOnce) {
-          this.remove(key, globalHandlers[i]);
-        }
+          if (res !== void 0) {
+            p1 = res;
+          }
+          if (handler.runOnce) {
+            this.remove(key, handler);
+          }
+        });
       }
     }
     {
       const localHandlers = this.getBucket(context)[key];
-      let len = localHandlers ? localHandlers.length : 0;
 
-      for (let i = 0; i < len; i++) {
-        if (localHandlers[i].skip) {
-          continue;
-        }
-        // performance considerations - http://jsperf.com/call-vs-apply-for-a-plugin-architecture
-        let res = localHandlers[i].call(context, p1, p2, p3, p4, p5, p6);
+      if (localHandlers && localHandlers.length) {
+        arrayEach(localHandlers, (handler) => {
+          if (!handler || handler.skip) {
+            return;
+          }
+          // performance considerations - http://jsperf.com/call-vs-apply-for-a-plugin-architecture
+          let res = handler.call(context, p1, p2, p3, p4, p5, p6);
 
-        if (res !== void 0) {
-          p1 = res;
-        }
-
-        if (localHandlers[i].runOnce) {
-          this.remove(key, localHandlers[i], context);
-        }
+          if (res !== void 0) {
+            p1 = res;
+          }
+          if (handler.runOnce) {
+            this.remove(key, handler, context);
+          }
+        });
       }
     }
 
@@ -771,14 +781,7 @@ class Hooks {
    * @param {Object} [context=null]
    */
   destroy(context = null) {
-    let bucket = this.getBucket(context);
-
-    for (let key in bucket) {
-      /* jshint -W089 */
-      for (let i = 0, len = bucket[key].length; i < len; i++) {
-        this.remove(key, bucket[key], context);
-      }
-    }
+    objectEach(this.getBucket(context), (value, key, bucket) => (bucket[key].length = 0));
   }
 
   /**
@@ -858,3 +861,7 @@ class Hooks {
 }
 
 export {Hooks};
+
+// temp for tests only!
+Handsontable.utils = Handsontable.utils || {};
+Handsontable.utils.Hooks = Hooks;

@@ -20,14 +20,28 @@ describe('ContextMenu', function () {
       });
 
       expect(hot.contextMenu).toBeDefined();
-
       expect($('.htContextMenu').is(':visible')).toBe(false);
 
       contextMenu();
 
       expect($('.htContextMenu').is(':visible')).toBe(true);
+    });
 
+    it("should open menu after right click on header cell when only header cells are visible", function () {
+      var hot = handsontable({
+        data: [],
+        colHeaders: ['Year', 'Kia'],
+        columns: [{"data":0}, {"data":1}],
+        contextMenu: true,
+        height: 100
+      });
 
+      expect(hot.contextMenu).toBeDefined();
+      expect($('.htContextMenu').is(':visible')).toBe(false);
+
+      contextMenu(hot.rootElement.querySelector('.ht_clone_top thead th'));
+
+      expect($('.htContextMenu').is(':visible')).toBe(true);
     });
 
     it("should open menu after right click active cell border", function () {
@@ -44,8 +58,6 @@ describe('ContextMenu', function () {
 			this.$container.find('.wtBorder.current:eq(0)').simulate('contextmenu');
 
       expect($('.htContextMenu').is(':visible')).toBe(true);
-
-
     });
 
     it("should open below the cursor coords if there's enough space below the cursor in the window viewport", function () {
@@ -1006,9 +1018,14 @@ describe('ContextMenu', function () {
       textArea.val(testComment);
       textArea.blur();
 
-      mouseDown(hot.rootElement);
-      expect(getCellMeta(1, 1).comment).toEqual(testComment);
-      expect(getCell(1, 1).className).toContain('htCommentCell');
+      mouseDown(document.body);
+
+      waits(100);
+
+      runs(function() {
+        expect(getCellMeta(1, 1).comment).toEqual(testComment);
+        expect(getCell(1, 1).className).toContain('htCommentCell');
+      });
     });
 
     it("should delete comment", function () {

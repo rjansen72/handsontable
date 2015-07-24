@@ -83,6 +83,7 @@ class WalkontableOverlays {
   registerListeners() {
     this.eventManager.addEventListener(document.documentElement, 'keydown', () => this.onKeyDown());
     this.eventManager.addEventListener(document.documentElement, 'keyup', () => this.onKeyUp());
+    this.eventManager.addEventListener(document, 'visibilitychange', () => this.onKeyUp());
 
     this.eventManager.addEventListener(this.mainTableScrollableElement, 'scroll', (event) => this.onTableScroll(event));
 
@@ -104,10 +105,10 @@ class WalkontableOverlays {
         let deltaY = event.wheelDeltaY || event.deltaY;
         let deltaX = event.wheelDeltaX || event.deltaX;
 
-        if (this.topOverlay.clone.wtTable.holder.contains(event.target)) {
+        if (this.topOverlay.clone.wtTable.holder.contains(event.realTarget)) {
           overlay = 'top';
 
-        } else if (this.leftOverlay.clone.wtTable.holder.contains(event.target)) {
+        } else if (this.leftOverlay.clone.wtTable.holder.contains(event.realTarget)) {
           overlay = 'left';
         }
 
@@ -306,8 +307,7 @@ class WalkontableOverlays {
    *
    */
   destroy() {
-    this.eventManager.clear();
-
+    this.eventManager.destroy();
     this.topOverlay.destroy();
     this.leftOverlay.destroy();
 

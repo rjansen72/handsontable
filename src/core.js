@@ -10,6 +10,7 @@ import {TableView} from './tableView.js';
 import {WalkontableCellCoords} from './3rdparty/walkontable/src/cell/coords.js';
 import {WalkontableCellRange} from './3rdparty/walkontable/src/cell/range.js';
 import {WalkontableSelection} from './3rdparty/walkontable/src/selection.js';
+import {WalkontableViewportColumnsCalculator} from './3rdparty/walkontable/src/calculator/viewportColumns.js';
 
 Handsontable.activeGuid = null;
 
@@ -61,6 +62,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
   Handsontable.eventManager.isHotTableEnv = this.isHotTableEnv;
 
   this.container = document.createElement('DIV');
+  this.renderCall = false;
 
   rootElement.insertBefore(this.container, rootElement.firstChild);
 
@@ -301,8 +303,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     /**
      * Populate cells at position with 2d array
      *
-     * @memberof Core#
-     * @function populateFromArray
+     * @private
      * @param {Object} start Start selection position
      * @param {Array} input 2d array
      * @param {Object} [end] End selection position (only for drag-down mode)
@@ -568,14 +569,14 @@ Handsontable.Core = function Core(rootElement, userSettings) {
       }
 
       if (disableVisualSelection === false ||
-        Array.isArray(disableVisualSelection) && disableVisualSelection.indexOf('current') === -1) {
+          Array.isArray(disableVisualSelection) && disableVisualSelection.indexOf('current') === -1) {
         instance.view.wt.selections.current.add(priv.selRange.highlight);
       }
       // set up area selection
       instance.view.wt.selections.area.clear();
 
       if ((disableVisualSelection === false ||
-        Array.isArray(disableVisualSelection) && disableVisualSelection.indexOf('area') === -1) &&
+          Array.isArray(disableVisualSelection) && disableVisualSelection.indexOf('area') === -1) &&
         selection.isMultiple()) {
         instance.view.wt.selections.area.add(priv.selRange.from);
         instance.view.wt.selections.area.add(priv.selRange.to);
@@ -826,6 +827,8 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     editorManager = new EditorManager(instance, priv, selection, datamap);
 
     this.forceFullRender = true; //used when data was changed
+
+    Handsontable.hooks.run(instance, 'init');
     this.view.render();
 
     if (typeof priv.firstRun === 'object') {
@@ -978,6 +981,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     grid.adjustRowsAndCols();
     Handsontable.hooks.run(instance, 'beforeChangeRender', changes, source);
     selection.refreshBorders(null, true);
+    instance.view.wt.wtOverlays.adjustElementsSize();
     Handsontable.hooks.run(instance, 'afterChange', changes, source || 'edit');
   }
 
@@ -1281,6 +1285,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
    */
   this.render = function() {
     if (instance.view) {
+      instance.renderCall = true;
       instance.forceFullRender = true; //used when data was changed
       selection.refreshBorders(null, true);
     }
@@ -2154,7 +2159,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     }
     if (width !== void 0 && width !== null) {
       switch (typeof width) {
-        case 'object': //array
+        case 'object': // array
           width = width[col];
           break;
 
@@ -2181,12 +2186,13 @@ Handsontable.Core = function Core(rootElement, userSettings) {
    * @fires Hooks#modifyColWidth
    */
   this.getColWidth = function(col) {
-    var width = instance._getColWidthFromSettings(col);
+    let width = instance._getColWidthFromSettings(col);
 
-    if (!width) {
-      width = 50;
-    }
     width = Handsontable.hooks.run(instance, 'modifyColWidth', width, col);
+
+    if (width === void 0) {
+      width = WalkontableViewportColumnsCalculator.DEFAULT_WIDTH;
+    }
 
     return width;
   };
@@ -2201,11 +2207,17 @@ Handsontable.Core = function Core(rootElement, userSettings) {
    * @returns {Number}
    */
   this._getRowHeightFromSettings = function(row) {
-    var height = priv.settings.rowHeights; //only uses grid settings
+    //let cellProperties = instance.getCellMeta(row, 0);
+    //let height = cellProperties.height;
+    //
+    //if (height === void 0 || height === priv.settings.height) {
+    //  height = cellProperties.rowHeights;
+    //}
+    var height = priv.settings.rowHeights;
 
     if (height !== void 0 && height !== null) {
       switch (typeof height) {
-        case 'object': //array
+        case 'object': // array
           height = height[row];
           break;
 
@@ -2346,7 +2358,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
   };
 
   /**
-   * Returns number of empty rows. If the optional ending parameter is 1, returns
+   * Returns number of empty rows. If the optional ending parameter is `true`, returns
    * number of empty rows at the bottom of the table.
    *
    * @memberof Core#
@@ -2376,7 +2388,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
   };
 
   /**
-   * Returns number of empty columns. If the optional `ending` parameter is `true`, returns number of empty
+   * Returns number of empty columns. If the optional ending parameter is `true`, returns number of empty
    * columns at right hand edge of the table.
    *
    * @memberof Core#
@@ -2530,10 +2542,8 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     if (instance.view) { //in case HT is destroyed before initialization has finished
       instance.view.destroy();
     }
-
-
     dom.empty(instance.rootElement);
-    eventManager.clear();
+    eventManager.destroy();
 
     Handsontable.hooks.run(instance, 'afterDestroy');
     Handsontable.hooks.destroy(instance);
@@ -2542,9 +2552,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
       if (instance.hasOwnProperty(i)) {
         //replace instance methods with post mortem
         if (typeof instance[i] === "function") {
-          if (i !== "runHooks") {
-            instance[i] = postMortem;
-          }
+          instance[i] = postMortem;
         }
         //replace instance properties with null (restores memory)
         //it should not be necessary but this prevents a memory leak side effects that show itself in Jasmine tests
@@ -2716,6 +2724,8 @@ Handsontable.Core = function Core(rootElement, userSettings) {
    * @type {String}
    */
   this.version = Handsontable.version;
+
+  Handsontable.hooks.run(instance, 'construct');
 };
 
 /**
@@ -3621,20 +3631,22 @@ DefaultSettings.prototype = {
   mergeCells: false,
 
   /**
-   * Number of rows to be prerendered before and after the viewport is changed.
+   * Number of rows to be prerendered before and after the viewport is changed. Default value is `'auto'` which means
+   * that Handsontable tries to calculates offset for best performance.
    *
-   * @type {Number}
-   * @default 10
+   * @type {Number|String}
+   * @default 'auto'
    */
-  viewportRowRenderingOffset: 10,
+  viewportRowRenderingOffset: 'auto',
 
   /**
-   * Number of columns to be prerendered before and after the viewport is changed.
+   * Number of columns to be prerendered before and after the viewport is changed. Default value is `'auto'` which means
+   * that Handsontable tries to calculates offset for best performance.
    *
-   * @type {Number}
-   * @default 10
+   * @type {Number|String}
+   * @default 'auto'
    */
-  viewportColumnRenderingOffset: 10,
+  viewportColumnRenderingOffset: 'auto',
 
   /**
    * @description
@@ -3722,6 +3734,64 @@ DefaultSettings.prototype = {
   checkedTemplate: void 0,
   uncheckedTemplate: void 0,
   format: void 0,
-  className: void 0
+  className: void 0,
+
+  /**
+   * Enables or disables autoColumnSize plugin. Default value is `undefined` which is the same effect as `true`.
+   * Disable this plugin can increase performance.
+   *
+   * Column width calculations are divided into sync and async part. Each of this part has own advantages and
+   * disadvantages. Synchronous counting is faster but it blocks browser UI and asynchronous is slower but it does not
+   * block Browser UI.
+   *
+   * To configure this sync/async line you can pass absolute value (columns) or percentage.
+   * @example
+   * ```js
+   * ...
+   * // as number (300 columns in sync, rest async)
+   * autoColumnSize: {syncLimit: 300},
+   * ...
+   *
+   * ...
+   * // as string (percent)
+   * autoColumnSize: {syncLimit: '40%'},
+   * ...
+   * ```
+   *
+   * `syncLimit` options is available since 0.16.0.
+   *
+   * @type {Object|Boolean}
+   * @default {syncLimit: 50}
+   */
+  autoColumnSize: void 0,
+
+  /**
+   * Enables or disables autoRowSize plugin. Default value is `undefined` which is the same effect as `true`.
+   * Disable this plugin can increase performance.
+   *
+   * Row height calculations are divided into sync and async part. Each of this part has own advantages and
+   * disadvantages. Synchronous counting is faster but it blocks browser UI and asynchronous is slower but it does not
+   * block Browser UI.
+   *
+   * To configure this sync/async line you can pass absolute value (rows) or percentage.
+   * @example
+   * ```js
+   * ...
+   * // as number (300 columns in sync, rest async)
+   * autoRowSize: {syncLimit: 300},
+   * ...
+   *
+   * ...
+   * // as string (percent)
+   * autoRowSize: {syncLimit: '40%'},
+   * ...
+   * ```
+   *
+   * `syncLimit` options is available since 0.16.0.
+   *
+   * @type {Object|Boolean}
+   * @default {syncLimit: 1000}
+   */
+  autoRowSize: void 0
 };
 Handsontable.DefaultSettings = DefaultSettings;

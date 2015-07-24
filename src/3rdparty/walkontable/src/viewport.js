@@ -1,6 +1,6 @@
 
 import * as dom from './../../../dom.js';
-import {eventManager as eventManagerObject} from './../../../eventManager.js';
+import {EventManager} from './../../../eventManager.js';
 import {WalkontableViewportColumnsCalculator} from './calculator/viewportColumns.js';
 import {WalkontableViewportRowsCalculator} from './calculator/viewportRows.js';
 
@@ -19,7 +19,6 @@ class WalkontableViewport {
     this.instance = this.wot;
 
     this.oversizedRows = [];
-    this.oversizedCols = [];
     this.oversizedColumnHeaders = [];
     this.clientHeight = 0;
     this.containerWidth = NaN;
@@ -27,9 +26,8 @@ class WalkontableViewport {
     this.rowsVisibleCalculator = null;
     this.columnsVisibleCalculator = null;
 
-    const eventManager = eventManagerObject(wotInstance);
-
-    eventManager.addEventListener(window, 'resize', () => {
+    this.eventManager = new EventManager(this.wot);
+    this.eventManager.addEventListener(window, 'resize', () => {
       this.clientHeight = this.getWorkspaceHeight();
     });
   }
@@ -121,10 +119,9 @@ class WalkontableViewport {
    */
   sumColumnWidths(from, length) {
     let sum = 0;
-    let defaultColumnWidth = this.instance.wtSettings.defaultColumnWidth;
 
     while (from < length) {
-      sum += this.wot.wtTable.getColumnWidth(from) || defaultColumnWidth;
+      sum += this.wot.wtTable.getColumnWidth(from);
       from ++;
     }
 
