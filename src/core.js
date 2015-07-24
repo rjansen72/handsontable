@@ -2542,10 +2542,8 @@ Handsontable.Core = function Core(rootElement, userSettings) {
     if (instance.view) { //in case HT is destroyed before initialization has finished
       instance.view.destroy();
     }
-
-
     dom.empty(instance.rootElement);
-    eventManager.clear();
+    eventManager.destroy();
 
     Handsontable.hooks.run(instance, 'afterDestroy');
     Handsontable.hooks.destroy(instance);
@@ -2554,9 +2552,7 @@ Handsontable.Core = function Core(rootElement, userSettings) {
       if (instance.hasOwnProperty(i)) {
         //replace instance methods with post mortem
         if (typeof instance[i] === "function") {
-          if (i !== "runHooks") {
-            instance[i] = postMortem;
-          }
+          instance[i] = postMortem;
         }
         //replace instance properties with null (restores memory)
         //it should not be necessary but this prevents a memory leak side effects that show itself in Jasmine tests
