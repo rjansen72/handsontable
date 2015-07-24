@@ -233,6 +233,7 @@ function TableView(instance) {
 
       var value = that.instance.getDataAtRowProp(row, prop);
 
+      TD.removeAttribute('colspan');
       renderer(that.instance, TD, row, col, prop, value, cellProperties);
       Handsontable.hooks.run(that.instance, 'afterRenderer', TD, row, col, prop, value, cellProperties);
 
