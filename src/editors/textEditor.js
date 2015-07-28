@@ -329,7 +329,9 @@ TextEditor.prototype.bindEvents = function() {
   });
 
   this.instance.addHook('afterScrollVertically', function() {
-    editor.refreshDimensions();
+    if (!editor.cellProperties || !editor.cellProperties.disableScrollWhenEditing) {
+      editor.refreshDimensions();
+    }
   });
 
   this.instance.addHook('afterColumnResize', function() {
