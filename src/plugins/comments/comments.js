@@ -155,7 +155,15 @@ class Comments extends BasePlugin {
    * @returns {Boolean}
    */
   targetIsCellWithComment(event) {
-    return dom.hasClass(event.target, 'htCommentCell') && dom.closest(event.target, [this.hot.rootElement]) ? true : false;
+    var isCommentCell = false;
+    
+    if (event.target.tagName == 'TD') {
+      isCommentCell = dom.hasClass(event.target, 'htCommentCell');
+    } else {
+      isCommentCell = dom.isChildOf(event.target, 'TD.htCommentCell');
+    }
+
+    return isCommentCell && dom.closest(event.target, [this.hot.rootElement]) ? true : false;
   }
 
   /**
@@ -333,7 +341,11 @@ class Comments extends BasePlugin {
       return;
     }
     if (this.targetIsCellWithComment(event)) {
-      let coordinates = this.hot.view.wt.wtTable.getCoords(event.target);
+      let TD = event.target;
+      if ('TD' != TD.tagName) {
+        TD = dom.closest(event.target, ['TD'], this.hot.rootElement);
+      }
+      let coordinates = this.hot.view.wt.wtTable.getCoords(TD);
       let range = {
         from: new WalkontableCellCoords(coordinates.row, coordinates.col)
       };
