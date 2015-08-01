@@ -35,12 +35,7 @@ function textRenderer(instance, TD, row, col, prop, value, cellProperties) {
 
   if (cellProperties.rendererTemplate) {
     dom.empty(TD);
-    var TEMPLATE = document.createElement('TEMPLATE');
-    TEMPLATE.setAttribute('bind', '{{}}');
-    TEMPLATE.innerHTML = cellProperties.rendererTemplate;
-    HTMLTemplateElement.decorate(TEMPLATE);
-    TEMPLATE.model = instance.getSourceDataAtRow(row);
-    TD.appendChild(TEMPLATE);
+    dom.fastInnerHTML(TD, cellProperties.rendererTemplate);
   }
   else {
     // this is faster than innerHTML. See: https://github.com/handsontable/handsontable/wiki/JavaScript-&-DOM-performance-tips
