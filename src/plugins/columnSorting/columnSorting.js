@@ -127,7 +127,10 @@ class ColumnSorting extends BasePlugin {
       this.hot.sortOrder = typeof order != 'undefined' ? order : true;
     }
 
+    this.setSortOrderClass();
+    
     this.hot.sortColumn = col;
+    this.lastSortedColumn = col;
   }
 
   sortByColumn(col, order) {
@@ -192,25 +195,13 @@ class ColumnSorting extends BasePlugin {
     eventManager.addEventListener(this.hot.rootElement, 'click', function(e) {
       if (dom.hasClass(e.target, 'columnSorting')) {
         let col = getColumn(e.target);
+        let sortOrder;
 
-        if (col !== this.lastSortedColumn) {
-          _this.sortOrderClass = 'ascending';
-        } else {
-          switch (_this.hot.sortOrder) {
-            case void 0:
-              _this.sortOrderClass = 'ascending';
-              break;
-            case true:
-              _this.sortOrderClass = 'descending';
-              break;
-            case false:
-              _this.sortOrderClass = void 0;
-          }
+        if (col !== _this.lastSortedColumn) {
+          sortOrder = true;
         }
 
-        this.lastSortedColumn = col;
-
-        _this.sortByColumn(col);
+        _this.sortByColumn(col, sortOrder);
       }
     });
 
@@ -336,6 +327,19 @@ class ColumnSorting extends BasePlugin {
     }
 
     this.hot.sortingEnabled = true; //this is required by translateRow plugin hook
+  }
+
+  setSortOrderClass() {
+    switch (this.hot.sortOrder) {
+      case void 0:
+        this.sortOrderClass = void 0;
+        break;
+      case true:
+        this.sortOrderClass = 'ascending';
+        break;
+      case false:
+        this.sortOrderClass = 'descending';
+    }
   }
 
   /**
