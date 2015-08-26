@@ -311,12 +311,16 @@ class ColumnSorting extends BasePlugin {
 
     this.sortIndicators[this.hot.sortColumn] = colMeta.sortIndicator;
 
-    switch (colMeta.type) {
-      case 'date':
-        sortFunction = this.dateSort;
-        break;
-      default:
-        sortFunction = this.defaultSort;
+    if (colMeta.sortHandler) {
+      sortFunction = colMeta.sortHandler;
+    } else {
+      switch (colMeta.type) {
+        case 'date':
+          sortFunction = this.dateSort;
+          break;
+        default:
+          sortFunction = this.defaultSort;
+      }
     }
 
     this.hot.sortIndex.sort(sortFunction(this.hot.sortOrder));
