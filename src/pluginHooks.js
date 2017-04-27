@@ -332,8 +332,8 @@ const REGISTERED_HOOKS = [
    * @param {Number} col
    * @param {String} key
    */
-  "afterRemoveCellMeta",
-  
+  'afterRemoveCellMeta',
+
   /**
    * Callback is fired when one or more columns are removed.
    *
